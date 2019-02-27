@@ -12,7 +12,6 @@ import org.apache.spark.sql.types.StructField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConversions;
-import scala.collection.Seq;
 
 import java.io.File;
 import java.io.FileReader;
@@ -29,8 +28,8 @@ import static org.apache.spark.sql.functions.col;
 import static org.apache.spark.sql.types.DataTypes.StringType;
 import static org.apache.spark.sql.types.DataTypes.TimestampType;
 
-@SuppressWarnings("rawtypes")
 public class ExecuteSparkJob {
+
     private final static Logger LOGGER = LoggerFactory.getLogger(ExecuteSparkJob.class);
 
     private final SparkJob sparkJob;
@@ -101,7 +100,6 @@ public class ExecuteSparkJob {
                 List<String> resultRow = new ArrayList<>();
                 if (datasetNamesIterator.hasNext()) {
                     String datasetName = datasetNamesIterator.next();
-
                     if (datasetFilesIterator.hasNext()) {
                         String datasetFile = "";
                         resultRow.add(SlimMessageUtils.pass("Dataset " + datasetName));
@@ -119,7 +117,6 @@ public class ExecuteSparkJob {
                         if (datasetsOk) {
                             csvToSparkView(sparkSession, datasetName, datasetFile);
                         }
-
                     } else {
                         datasetsOk = false;
                         resultRow.add(SlimMessageUtils.fail("Dataset " + datasetName + " is missing"));
@@ -136,14 +133,7 @@ public class ExecuteSparkJob {
 
             List<String> resultRow = new ArrayList<>();
             if (datasetsOk) {
-                Dataset executeResultDS = sparkJob.execute(sparkSession, this.sysTimestamp);
-                Dataset<Row> output = transformDataset(StructsUtil.stringifyStrucs(executeResultDS));
-                String outputCsv = outputFile != null ? outputFile : sparkJob.getClass().getSimpleName();
-                try {
-                    SparkUtil.writeCsv(output, FileUtil.prepareOutputFile(outputCsv).toString());
-                } finally {
-                    FileUtil.unlockOutputFile(outputCsv);
-                }
+                String outputCsv = executeSparkJob(sparkSession);
                 resultRow.add(SlimMessageUtils.pass("Result saved to " + OUTPUT + outputCsv));
             } else {
                 resultRow.add(SlimMessageUtils.fail(":'( could not run Spark job"));
@@ -157,6 +147,18 @@ public class ExecuteSparkJob {
         }
         LOGGER.info("Spark job " + sparkJob.getClass().getName() + " succeeded");
         return result;
+    }
+
+    private String executeSparkJob(SparkSession sparkSession) throws IOException {
+        Dataset executeResultDS = sparkJob.execute(sparkSession, this.sysTimestamp);
+        Dataset<Row> output = transformDataset(StructsUtil.stringifyStrucs(executeResultDS));
+        String outputCsv = outputFile != null ? outputFile : sparkJob.getClass().getSimpleName();
+        try {
+            SparkUtil.writeCsv(output, FileUtil.prepareOutputFile(outputCsv).toString());
+        } finally {
+            FileUtil.unlockOutputFile(outputCsv);
+        }
+        return outputCsv;
     }
 
     private String getNextFilename(Iterator<List<String>> datasetFilesIterator) {
@@ -177,34 +179,29 @@ public class ExecuteSparkJob {
     }
 
     private Dataset<Row> transformDataset(Dataset resultDS) {
-        Dataset orderedDS;
-        if (this.orderByColumns.length > 0) {
-            orderedDS = resultDS.orderBy(Arrays.stream(this.orderByColumns).map(functions::col).toArray(Column[]::new));
-        } else {
-            orderedDS = resultDS;
-        }
-
+        Dataset orderedDS = this.orderByColumns.length > 0 ? resultDS.orderBy(Arrays.stream(this.orderByColumns).map(functions::col).toArray(Column[]::new)) : resultDS;
         List<StructField> structFields = JavaConversions.seqAsJavaList(orderedDS.schema().toList());
-        List<Column> columns = structFields.stream().map(new Function<StructField, Column>() {
-            @Override
-            public Column apply(StructField structField) {
-                String fieldName = structField.name();
+        List<Column> columns = structFields
+                .stream()
+                .map(new Function<StructField, Column>() {
+                    @Override
+                    public Column apply(StructField structField) {
+                        String fieldName = structField.name();
 
-                if (structField.dataType() == TimestampType) {
-                    return callUDF("timestampToString", col(fieldName)).as(fieldName);
-                } else {
-                    return col(fieldName).cast(StringType).as(fieldName);
-                }
-            }
+                        if (structField.dataType() == TimestampType) {
+                            return callUDF("timestampToString", col(fieldName)).as(fieldName);
+                        } else {
+                            return col(fieldName).cast(StringType).as(fieldName);
+                        }
+                    }
 
-            @Override
-            public <V> Function<V, Column> compose(Function<? super V, ? extends StructField> before) {
-                return null;
-            }
-        }).collect(Collectors.toList());
-
-        Seq<Column> columnsSeq = JavaConversions.asScalaBuffer(columns);
-        return orderedDS.select(columnsSeq);
+                    @Override
+                    public <V> Function<V, Column> compose(Function<? super V, ? extends StructField> before) {
+                        return null;
+                    }
+                })
+                .collect(Collectors.toList());
+        return orderedDS.select(JavaConversions.asScalaBuffer(columns));
     }
 
 

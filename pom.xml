@@ -1,5 +1,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
     <modelVersion>4.0.0</modelVersion>
     <groupId>au.com.octo</groupId>
     <artifactId>fitnesse-spark-light</artifactId>
@@ -11,22 +12,6 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
-
-    <distributionManagement>
-        <repository>
-            <id>edi-releases</id>
-            <url>https://artifacts.edi-pilot.ampaws.com.au/nexus/content/repositories/releases/</url>
-        </repository>
-        <snapshotRepository>
-            <id>edi-snapshots</id>
-            <url>https://artifacts.edi-pilot.ampaws.com.au/nexus/content/repositories/snapshots/</url>
-        </snapshotRepository>
-    </distributionManagement>
-
-    <scm>
-        <connection>scm:git:git@gitlab.ccoe.ampaws.com.au:EDI/fitnesse-edim.git</connection>
-        <tag>HEAD</tag>
-    </scm>
 
     <dependencies>
         <dependency>
@@ -65,7 +50,6 @@
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_2.11</artifactId>
             <version>2.0.2</version>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>

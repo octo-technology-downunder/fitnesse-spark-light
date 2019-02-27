@@ -19,6 +19,7 @@ import java.util.List;
 public class CsvUtil {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CsvUtil.class);
+
     public final static CSVFormat FORMAT = CSVFormat.newFormat('|').withQuote('"').withRecordSeparator(Constants.RECORD_SEPARATOR);
 
     public static Iterator<List<String>> read(String fileName) {
@@ -49,7 +50,7 @@ public class CsvUtil {
                         throw new RuntimeException("End of file reached");
                     CSVRecord record = iterator.next();
                     List<String> next = new ArrayList<>();
-                    record.forEach(value -> next.add(value));
+                    record.forEach(next::add);
                     return next;
                 }
             };
@@ -88,7 +89,7 @@ public class CsvUtil {
         }
     }
 
-    public static CSVPrinter csvPrinter(String file) {
+    private static CSVPrinter csvPrinter(String file) {
         try {
             File outputFile = FileUtil.prepareOutputFile(file);
             OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(outputFile), "UTF-8");
@@ -97,20 +98,5 @@ public class CsvUtil {
             throw new RuntimeException(e);
         }
     }
-
-    public static long rowCount(String file) {
-        try {
-            CSVParser parser = CSVParser.parse(new File(file), Constants.CHARSET, FORMAT);
-            long i = 0;
-            for (Iterator<CSVRecord> iterator = parser.iterator(); iterator.hasNext(); ) {
-                iterator.next();
-                i++;
-            }
-            return i;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
 
 }

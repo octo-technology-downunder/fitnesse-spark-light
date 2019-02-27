@@ -1,13 +1,12 @@
 package au.com.octo.fitnesse.fixtures;
 
-import au.com.octo.fitnesse.fixtures.utils.*;
+import au.com.octo.fitnesse.fixtures.utils.CsvUtil;
+import au.com.octo.fitnesse.fixtures.utils.FileUtil;
+import au.com.octo.fitnesse.fixtures.utils.SlimMessageUtils;
 import au.com.octo.fitnesse.spark.SparkJob;
 import au.com.octo.fitnesse.spark.SparkUtil;
 import au.com.octo.fitnesse.spark.StructsUtil;
-import org.apache.spark.sql.Column;
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.*;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
 import org.slf4j.Logger;
@@ -17,13 +16,14 @@ import scala.collection.Seq;
 
 import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
 import java.io.Reader;
 import java.sql.Timestamp;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static au.com.octo.fitnesse.fixtures.utils.Constants.OUTPUT;
 import static org.apache.spark.sql.functions.callUDF;
 import static org.apache.spark.sql.functions.col;
 import static org.apache.spark.sql.types.DataTypes.StringType;
@@ -40,35 +40,56 @@ public class ExecuteSparkJob {
     private String[] orderByColumns;
     private final Map<String, String> config;
 
+    /**
+     * Will be call by fitnesse
+     */
     public ExecuteSparkJob(ExecuteSparkJobBuilder builder) throws Exception {
-        this.sparkJob = builder.sparkJob;
-        this.datasetNames = builder.datasetNames;
-        this.outputFile = builder.outputFile;
-        this.sysTimestamp = builder.sysTimestamp;
-        this.orderByColumns = builder.orderByColumns;
-        this.config = builder.config;
+        this.sparkJob = builder.getSparkJob();
+        this.datasetNames = builder.getDatasetNames();
+        this.outputFile = builder.getOutputFile();
+        this.sysTimestamp = builder.getSysTimestamp();
+        this.orderByColumns = builder.getOrderByColumns();
+        this.config = builder.getConfig();
     }
 
+    /**
+     * Will be call by fitnesse
+     */
     public ExecuteSparkJob(String className) throws Exception {
         this(new ExecuteSparkJobBuilder(className));
     }
 
+    /**
+     * Will be call by fitnesse
+     */
     public ExecuteSparkJob(String className, String outputFile) throws Exception {
         this(new ExecuteSparkJobBuilder(className).outputFile(outputFile));
     }
 
+    /**
+     * Will be call by fitnesse
+     */
     public ExecuteSparkJob(String className, String outputFile, String sysTimestamp) throws Exception {
         this(new ExecuteSparkJobBuilder(className).outputFile(outputFile).sysTimestamp(sysTimestamp));
     }
 
+    /**
+     * Will be call by fitnesse
+     */
     public ExecuteSparkJob(String className, String outputFile, String orderByColumns, String sysTimestamp) throws Exception {
         this(new ExecuteSparkJobBuilder(className).outputFile(outputFile).orderByColumns(orderByColumns).sysTimestamp(sysTimestamp));
     }
 
+    /**
+     * Will be call by fitnesse
+     */
     public ExecuteSparkJob(String className, String outputFile, String orderByColumns, String sysTimestamp, String config) throws Exception {
         this(new ExecuteSparkJobBuilder(className).outputFile(outputFile).orderByColumns(orderByColumns).sysTimestamp(sysTimestamp).config(config));
     }
 
+    /**
+     * Will be call by fitnesse
+     */
     public List<List<String>> doTable(List<List<String>> files) throws Exception {
         boolean datasetsOk = true;
         List<List<String>> result = new ArrayList<>();
@@ -78,7 +99,6 @@ public class ExecuteSparkJob {
         try {
             while (datasetFilesIterator.hasNext() || datasetNamesIterator.hasNext()) {
                 List<String> resultRow = new ArrayList<>();
-
                 if (datasetNamesIterator.hasNext()) {
                     String datasetName = datasetNamesIterator.next();
 
@@ -86,28 +106,18 @@ public class ExecuteSparkJob {
                         String datasetFile = "";
                         resultRow.add(SlimMessageUtils.pass("Dataset " + datasetName));
 
-                        List<String> filesList = datasetFilesIterator.next();
-
-                        assert (filesList.size() == 1);
-
-                        String fileName = filesList.get(0);
-
-                        File file = new File(Constants.OUTPUT + fileName);
-
+                        String fileName = getNextFilename(datasetFilesIterator);
+                        File file = new File(OUTPUT + fileName);
                         if (!file.exists()) {
                             datasetsOk = false;
                             resultRow.add(SlimMessageUtils.fail("File not found: " + fileName));
                         } else {
-                            datasetFile = Constants.OUTPUT + fileName;
+                            datasetFile = OUTPUT + fileName;
                             resultRow.add(SlimMessageUtils.pass(fileName));
                         }
 
                         if (datasetsOk) {
-                            Reader csv = new FileReader(datasetFile);
-                            Map<String, Integer> csvHeader = CsvUtil.FORMAT.withHeader().parse(csv).getHeaderMap();
-                            List<StructField> fields = SparkUtil.getSchemaFromHeader(csvHeader);
-                            Dataset ds = SparkUtil.readCsv(sparkSession, DataTypes.createStructType(fields), datasetFile);
-                            StructsUtil.unstringifyStructs(ds).createTempView(datasetName);
+                            csvToSparkView(sparkSession, datasetName, datasetFile);
                         }
 
                     } else {
@@ -125,7 +135,6 @@ public class ExecuteSparkJob {
             }
 
             List<String> resultRow = new ArrayList<>();
-
             if (datasetsOk) {
                 Dataset executeResultDS = sparkJob.execute(sparkSession, this.sysTimestamp);
                 Dataset<Row> output = transformDataset(StructsUtil.stringifyStrucs(executeResultDS));
@@ -135,7 +144,7 @@ public class ExecuteSparkJob {
                 } finally {
                     FileUtil.unlockOutputFile(outputCsv);
                 }
-                resultRow.add(SlimMessageUtils.pass("Result saved to " + Constants.OUTPUT + outputCsv));
+                resultRow.add(SlimMessageUtils.pass("Result saved to " + OUTPUT + outputCsv));
             } else {
                 resultRow.add(SlimMessageUtils.fail(":'( could not run Spark job"));
             }
@@ -147,23 +156,36 @@ public class ExecuteSparkJob {
             sparkSession.stop();
         }
         LOGGER.info("Spark job " + sparkJob.getClass().getName() + " succeeded");
-
         return result;
+    }
+
+    private String getNextFilename(Iterator<List<String>> datasetFilesIterator) {
+        List<String> filesList = datasetFilesIterator.next();
+        assert (filesList.size() == 1);
+        return filesList.get(0);
+    }
+
+    private void csvToSparkView(SparkSession sparkSession, String datasetName, String datasetFile) throws IOException, AnalysisException {
+        Reader csv = new FileReader(datasetFile);
+        Map<String, Integer> csvHeader = CsvUtil.FORMAT.withHeader().parse(csv).getHeaderMap();
+        List<StructField> fields = SparkUtil.getSchemaFromHeader(csvHeader);
+        Dataset ds = SparkUtil.readCsv(sparkSession, DataTypes.createStructType(fields), datasetFile);
+
+        StructsUtil
+                .unstringifyStructs(ds)
+                .createTempView(datasetName);
     }
 
     private Dataset<Row> transformDataset(Dataset resultDS) {
         Dataset orderedDS;
         if (this.orderByColumns.length > 0) {
-            orderedDS = resultDS.orderBy(Arrays.stream(this.orderByColumns).map(string -> col(string)).toArray(i -> new Column[i]));
+            orderedDS = resultDS.orderBy(Arrays.stream(this.orderByColumns).map(functions::col).toArray(Column[]::new));
         } else {
             orderedDS = resultDS;
         }
 
-        // Cast every column to String
         List<StructField> structFields = JavaConversions.seqAsJavaList(orderedDS.schema().toList());
-
         List<Column> columns = structFields.stream().map(new Function<StructField, Column>() {
-
             @Override
             public Column apply(StructField structField) {
                 String fieldName = structField.name();
@@ -185,51 +207,6 @@ public class ExecuteSparkJob {
         return orderedDS.select(columnsSeq);
     }
 
-    public static class ExecuteSparkJobBuilder {
-
-        private SparkJob sparkJob;
-        private final List datasetNames;
-        private String outputFile;
-        private Timestamp sysTimestamp;
-        private String[] orderByColumns = new String[]{};
-        private Map<String, String> config = new LinkedHashMap<>();
-
-        public ExecuteSparkJobBuilder(String className) throws ClassNotFoundException, IllegalAccessException, InstantiationException {
-            Class<?> cls = Class.forName(className);
-            this.sparkJob = (SparkJob) cls.newInstance();
-            this.datasetNames = sparkJob.describeInput();
-        }
-
-        public ExecuteSparkJobBuilder outputFile(String outputFile) {
-            this.outputFile = outputFile.replaceAll(">", "");
-            return this;
-        }
-
-        public ExecuteSparkJobBuilder sysTimestamp(String sysTimestamp) {
-            if (isNotBlank(sysTimestamp))
-                this.sysTimestamp = new Timestamp(DateFormatter.formatStandard.parseMillis(sysTimestamp));
-            else
-                this.sysTimestamp = new Timestamp(System.currentTimeMillis());
-            return this;
-        }
-
-        public ExecuteSparkJobBuilder config(String config) {
-            for (String keyValue : config.split("[,;]")) {
-                String[] pairs = keyValue.split("=", 2);
-                this.config.put(pairs[0].trim(), pairs.length == 1 ? "" : pairs[1].trim());
-            }
-            return this;
-        }
-
-        public ExecuteSparkJobBuilder orderByColumns(String orderByColumns) {
-            this.orderByColumns = orderByColumns.split("[\\s,;]+");
-            return this;
-        }
-
-        public ExecuteSparkJob build() throws Exception {
-            return new ExecuteSparkJob(this);
-        }
-    }
 
 }
 

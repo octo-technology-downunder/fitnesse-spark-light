@@ -41,16 +41,7 @@ public class CompareUtil {
         }
     }
 
-    /**
-     * Compares two Tables
-     *
-     * @param expectedTable Data from CSV (prepared from DB query)
-     *                      First row should be headers
-     *                      Data starts from second row. So IterableTable.next() should give data
-     * @param actualTable   Talend job data
-     * @return table comparison result
-     */
-    public static TableComparisonResult compareTable(IterableTable expectedTable, IterableTable actualTable, final boolean truncate) {
+    private static TableComparisonResult compareTable(IterableTable expectedTable, IterableTable actualTable, final boolean truncate) {
         LOGGER.info("Comparing tables with truncate= {}", truncate);
         TableComparisonResult result = new TableComparisonResult(truncate);
         Iterator<DataRow> expectedDataRows = expectedTable.iterator();
@@ -72,7 +63,7 @@ public class CompareUtil {
         return result;
     }
 
-    static RowComparisonResult compareHeaders(List<String> expectedHeaders, List<String> actualHeaders) {
+    private static RowComparisonResult compareHeaders(List<String> expectedHeaders, List<String> actualHeaders) {
         ValueComparator<String, String> headerValueComparator = new HeaderValueComparator();
         RowComparisonResult result = new RowComparisonResult();
         for (int index = 0; index < Math.max(getSize(expectedHeaders), getSize(actualHeaders)); index++) {
@@ -82,13 +73,7 @@ public class CompareUtil {
         return result;
     }
 
-    /**
-     * @param expectedRow Contains data for all cells in that row
-     * @param actualRow   Actual data
-     * @param rowNum      expected data
-     * @return comparison result
-     */
-    static RowComparisonResult compareRows(DataRow expectedRow, DataRow actualRow, int rowNum) {
+    private static RowComparisonResult compareRows(DataRow expectedRow, DataRow actualRow, int rowNum) {
         RowComparisonResult result = new RowComparisonResult();
         for (int index = 0; index < Math.max(getSize(expectedRow.getCells()), getSize(actualRow.getCells())); index++) {
             result.add(compareCellValues(expectedRow.getCell(index), actualRow.getCell(index)));
@@ -97,7 +82,7 @@ public class CompareUtil {
         return result;
     }
 
-    static <V1, V2> CellComparisonResult compareCellValues(DataRow.Cell<V1> expectedValue, DataRow.Cell<V2> actualValue) {
+    private static <V1, V2> CellComparisonResult compareCellValues(DataRow.Cell<V1> expectedValue, DataRow.Cell<V2> actualValue) {
         ValueComparator comparator = ComparatorFactory.getComparator(expectedValue.getColumn().getTransformation());
         return comparator.compare(getValue(expectedValue), getValue(actualValue));
     }

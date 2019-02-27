@@ -19,16 +19,22 @@ public class CsvFile {
     private final Map<String, String> readColumnTransformations = new HashMap<>();
     private final static Logger LOGGER = LoggerFactory.getLogger(CsvFile.class);
 
+    /**
+     * Will be call by fitnesse
+     */
     public CsvFile(String table) {
         this.table = table;
     }
 
+    /**
+     * Will be call by fitnesse
+     */
     public CsvFile(String table, String rawReadColumnTransformations) {
         this.table = table;
         this.readColumnTransformations.putAll(extractColumnTransformations(rawReadColumnTransformations));
     }
 
-    public Map<String, String> extractColumnTransformations(String rawColumnTransformations) {
+    private Map<String, String> extractColumnTransformations(String rawColumnTransformations) {
         LOGGER.info("Applying transformations: " + rawColumnTransformations);
         Map<String, String> readColumnTransformations = new HashMap<>();
         if (rawColumnTransformations != null) {
@@ -47,6 +53,9 @@ public class CsvFile {
         return readColumnTransformations;
     }
 
+    /**
+     * Will be call by fitnesse
+     */
     public List<List<String>> doTable(List<List<String>> expectedRows) throws IOException {
         LOGGER.info("ExpectedRows from: " + table);
         if (table.startsWith(">>")) {

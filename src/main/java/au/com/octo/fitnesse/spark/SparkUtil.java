@@ -8,7 +8,6 @@ import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.FileUtils;
 import org.apache.spark.SparkConf;
-import org.apache.spark.sql.AnalysisException;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -24,7 +23,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public class SparkUtil {
 
@@ -34,13 +35,15 @@ public class SparkUtil {
 
     public static void writeCsv(Dataset<Row> dataset, String file) throws IOException {
         File tmpFolder = new File(file + ".tmp");
-        if (tmpFolder.exists())
+        if (tmpFolder.exists()) {
             throw new RuntimeException("Folder " + tmpFolder.toString() + " already exists");
+        }
         tmpFolder.deleteOnExit();
         tmpFolder.mkdirs();
         LOGGER.debug("Writing partitions to " + tmpFolder);
-        if (LOGGER.isDebugEnabled())
+        if (LOGGER.isDebugEnabled()) {
             dataset.explain();
+        }
         String[] headers = dataset.columns();
         dataset.coalesce(1).foreachPartition(partition -> {
             File part = new File(tmpFolder, "part_" + partition.hashCode());
@@ -66,9 +69,7 @@ public class SparkUtil {
                     int partRowNum = 0;
                     try (CSVParser csvParser = csvParser(tmpFile)) {
                         for (CSVRecord csvRecord : csvParser) {
-                            if (rowNum > 0 && partRowNum == 0) {
-                                // Don't repeat headers
-                            } else {
+                            if (rowNum <= 0 || partRowNum != 0) {
                                 printer.printRecord(csvRecord);
                             }
                             partRowNum++;
@@ -84,38 +85,36 @@ public class SparkUtil {
 
     public static List<StructField> getSchemaFromHeader(Map<String, Integer> headerMap) {
         List<StructField> fields = new ArrayList<>();
-
-        Iterator<String> iterator = headerMap.keySet().iterator();
-        while (iterator.hasNext()) {
+        for (String s : headerMap.keySet()) {
             DataType dataType = DataTypes.StringType;
 
-            String[] nameTypePair = iterator.next().split(":");
+            String[] nameTypePair = s.split(":");
             String name = nameTypePair[0];
 
             if (nameTypePair.length == 2) {
                 String type = nameTypePair[1];
 
                 switch (type) {
-                case "Int":
-                    dataType = DataTypes.IntegerType;
-                    break;
-                case "Date":
-                    dataType = DataTypes.DateType;
-                    break;
-                case "Double":
-                    dataType = DataTypes.DoubleType;
-                    break;
-                case "Decimal":
-                    dataType = DataTypes.createDecimalType(10, 2);
-                    break;
-                case "String":
-                    break;
-                default:
-                    // accept struct arrays, preserve the type in the name, will convert later
-                    if (StructsUtil.isArrayType(type)) {
-                        name = name + ":" + type;
+                    case "Int":
+                        dataType = DataTypes.IntegerType;
                         break;
-                    } else throw new IllegalArgumentException("Type is not supported " + type);
+                    case "Date":
+                        dataType = DataTypes.DateType;
+                        break;
+                    case "Double":
+                        dataType = DataTypes.DoubleType;
+                        break;
+                    case "Decimal":
+                        dataType = DataTypes.createDecimalType(10, 2);
+                        break;
+                    case "String":
+                        break;
+                    default:
+                        // accept struct arrays, preserve the type in the name, will convert later
+                        if (StructsUtil.isArrayType(type)) {
+                            name = name + ":" + type;
+                            break;
+                        } else throw new IllegalArgumentException("Type is not supported " + type);
                 }
             }
 
@@ -126,15 +125,6 @@ public class SparkUtil {
         return fields;
     }
 
-    public static Dataset readCsv(SparkSession sparkSession, String... files) {
-        return sparkSession
-                .read()
-                .option("header", "true")
-                .option("multiLine", "true")
-                .option("delimiter", "|")
-                .csv(files);
-    }
-
     public static Dataset readCsv(SparkSession sparkSession, StructType schema, String... files) {
         return sparkSession
                 .read()
@@ -143,10 +133,6 @@ public class SparkUtil {
                 .option("delimiter", "|")
                 .schema(schema)
                 .csv(files);
-    }
-
-    public static SparkSession createSparkSession() {
-        return createSparkSession(Collections.emptyMap());
     }
 
     public static SparkSession createSparkSession(Map<String, String> conf) {
@@ -164,14 +150,10 @@ public class SparkUtil {
         return session;
     }
 
-    public static void registerUDFs(SparkSession sparkSession) {
+    private static void registerUDFs(SparkSession sparkSession) {
         sparkSession
                 .udf()
                 .register("timestampToString", UDF.timestampToString, DataTypes.StringType);
-    }
-
-    public static Dataset<Row> readCsv(SparkSession sparkSession, StructType schema, List<String> files) {
-        return readCsv(sparkSession, schema, files.toArray(new String[0]));
     }
 
     private static CSVPrinter csvPrinter(File file) throws IOException {
@@ -185,18 +167,6 @@ public class SparkUtil {
 
     private static CSVParser csvParser(File file) throws IOException {
         return CSVParser.parse(file, CHARSET, FORMAT);
-    }
-
-    public static void readCsv(SparkSession sparkSession, String csvFile, String name) throws AnalysisException {
-        Dataset<Row> result = readCsv(sparkSession, csvFile);
-        result.createTempView(name);
-    }
-
-    public static <T> void readAllCsvForJob(SparkSession sparkSession, String path, SparkJob<T> job) throws AnalysisException {
-        for (String name : job.describeInput()) {
-            Dataset<Row> result = readCsv(sparkSession, path + name);
-            result.createTempView(name);
-        }
     }
 
 }

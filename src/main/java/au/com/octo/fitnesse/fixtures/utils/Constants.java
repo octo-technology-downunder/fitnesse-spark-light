@@ -9,9 +9,7 @@ import java.nio.charset.Charset;
 public class Constants {
 
     public static String OUTPUT = "FitNesseRoot/files/actualFiles/"; // non-final to force initialization of this class
-    public final static String BLOB = "blob";
     public static final String BINARY_DATA = "Binary Data";
-    public static final String TRIM = "trim";
 
     static {
         new File(OUTPUT).mkdirs();
@@ -21,7 +19,7 @@ public class Constants {
                 FileUtils.copyFile(plugins, new File("plugins.properties"));
             }
         } catch (IOException e) {
-            //Oups
+            // Oups
         }
     }
 

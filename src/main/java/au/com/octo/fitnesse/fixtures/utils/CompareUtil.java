@@ -16,10 +16,6 @@ public class CompareUtil {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CompareUtil.class);
 
-    public static List<List<String>> compareTable(List<List<String>> expectedRows, Iterator<List<String>> actualRows) {
-        return compareTable(expectedRows, new IteratorListDataTable(actualRows), null);
-    }
-
     public static List<List<String>> compareTable(List<List<String>> expectedRows, IterableTable actualRows, Map<String, String> columnTransformations) {
         try {
             if (expectedRows.size() == 1) {

@@ -8,7 +8,6 @@ import java.util.stream.Collectors;
 public class IteratorListDataTable implements IterableTable {
 
     private Iterator<List<String>> listIterator;
-
     private List<String> headers;
 
     public IteratorListDataTable(Iterator<List<String>> listIterator) {

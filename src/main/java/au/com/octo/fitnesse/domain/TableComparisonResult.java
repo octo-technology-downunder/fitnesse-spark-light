@@ -1,6 +1,5 @@
 package au.com.octo.fitnesse.domain;
 
-import au.com.octo.fitnesse.fixtures.utils.Constants;
 import au.com.octo.fitnesse.fixtures.utils.SlimMessageUtils;
 import org.apache.commons.collections.CollectionUtils;
 
@@ -8,6 +7,8 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static au.com.octo.fitnesse.fixtures.utils.Constants.*;
 
 public class TableComparisonResult {
 
@@ -24,16 +25,15 @@ public class TableComparisonResult {
 
     public List<List<String>> toFitnessResult() {
         return rowComparisonResults.stream()
-                .map(row -> row.getCellComparisonResultList().stream().
-                        map(CellComparisonResult::getMessage).collect(Collectors.toList()))
+                .map(row -> row.getCellComparisonResultList().stream().map(CellComparisonResult::getMessage).collect(Collectors.toList()))
                 .collect(Collectors.toList());
     }
 
     public void add(RowComparisonResult rowComparisonResult) {
         boolean isError = rowComparisonResult.getCellComparisonResultList().stream().anyMatch(CellComparisonResult::isError);
-        if (!truncate || rowComparisonResults.size() < Constants.DISPLAY_ROWS) {
+        if (!truncate || rowComparisonResults.size() < DISPLAY_ROWS) {
             rowComparisonResults.add(rowComparisonResult);
-        } else if (isError && nbErrors < Constants.DISPLAY_ERRORS) {
+        } else if (isError && nbErrors < DISPLAY_ERRORS) {
             rowComparisonErrors.add(rowComparisonResult);
         }
         if (isError) {
@@ -45,18 +45,18 @@ public class TableComparisonResult {
         String message;
         RowComparisonResult rowComparisonResult = new RowComparisonResult();
         List<CellComparisonResult> cellComparisonResults = null;
-        //TODO Add a message to WrongRow, instead of checking for instanceOf
+
         if (actualRow instanceof MissingRow) {
             List<DataRow.Cell> cells = expectedRow.getCells();
-            message = Constants.MISSING_ROW;
+            message = MISSING_ROW;
             cellComparisonResults = prepareCellResultWithMessage(rowNum, cells, message);
         } else if (expectedRow instanceof MissingRow) {
             List<DataRow.Cell> cells = actualRow.getCells();
-            message = Constants.UNEXPECTED_ROW;
+            message = UNEXPECTED_ROW;
             cellComparisonResults = prepareCellResultWithMessage(rowNum, cells, message);
         } else if (actualRow instanceof WrongRow) {
             List<DataRow.Cell> cells = expectedRow.getCells();
-            message = Constants.MULTIPLE_MATCHING_ROWS;
+            message = MULTIPLE_MATCHING_ROWS;
             cellComparisonResults = prepareCellResultWithMessage(rowNum, cells, message);
         }
         rowComparisonResult.addAll(cellComparisonResults);
@@ -64,15 +64,16 @@ public class TableComparisonResult {
     }
 
     public void addComparisonSummaryMessage(int rowNum) {
-        if (truncate && rowNum > Constants.DISPLAY_ROWS) {
+        if (truncate && rowNum > DISPLAY_ROWS) {
             rowComparisonResults.add(getReportTruncatedMessage());
         }
         if (CollectionUtils.isNotEmpty(this.rowComparisonErrors)) {
             rowComparisonResults.addAll(this.rowComparisonErrors);
         }
-        if (nbErrors > Constants.DISPLAY_ERRORS) {
+        if (nbErrors > DISPLAY_ERRORS) {
             rowComparisonResults.add(getReportTruncatedMessage());
         }
+
         RowComparisonResult rowComparisonResult = new RowComparisonResult();
         List<CellComparisonResult> reportRow = new ArrayList<>();
         CellComparisonResult cellComparisonResult;
@@ -94,9 +95,7 @@ public class TableComparisonResult {
 
     private <T> List<CellComparisonResult> prepareCellResultWithMessage(int rowNum, List<DataRow.Cell> cells, String message) {
         List<CellComparisonResult> cellComparisonResults = new ArrayList<>();
-        cellComparisonResults.addAll(cells.stream().map(t -> {
-            return new CellComparisonResult(false, SlimMessageUtils.report(t.getValueAsString()));
-        }).collect(Collectors.toList()));
+        cellComparisonResults.addAll(cells.stream().map(t -> new CellComparisonResult(false, SlimMessageUtils.report(t.getValueAsString()))).collect(Collectors.toList()));
         cellComparisonResults.add(new CellComparisonResult(false, SlimMessageUtils.report("" + rowNum)));
         cellComparisonResults.add(new CellComparisonResult(true, SlimMessageUtils.fail(message)));
         return cellComparisonResults;

@@ -5,11 +5,7 @@ import java.util.List;
 
 public class RowComparisonResult {
 
-    private List<CellComparisonResult> cellComparisonResultList;
-
-    public RowComparisonResult() {
-        this.cellComparisonResultList = new LinkedList<>();
-    }
+    private List<CellComparisonResult> cellComparisonResultList = new LinkedList<>();
 
     public void add(CellComparisonResult cellComparisonResult) {
         this.cellComparisonResultList.add(cellComparisonResult);

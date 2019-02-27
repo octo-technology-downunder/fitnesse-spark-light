@@ -12,10 +12,6 @@ public class CellComparisonBuilder {
         return prepareFailureMessage(expectedValue, actualValue);
     }
 
-    public CellComparisonResult report(String message) {
-        return new CellComparisonResult(false, message);
-    }
-
     private CellComparisonResult prepareFailureMessage(String expectedValue, String actualValue) {
         String message = SlimMessageUtils.fail(expectedValue, actualValue);
         return new CellComparisonResult(true, message);

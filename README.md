@@ -16,5 +16,5 @@ Using those fixture you will be able to create and run tests:
 
 ## sample of a working fitnesse test using those fixture
 
-Send us a message :)
+I simple one can be found [here](https://raw.githubusercontent.com/octo-technology-downunder/fitnesse-spark-light/master/fitnesse-demo/spark-job-demo.wiki)
 

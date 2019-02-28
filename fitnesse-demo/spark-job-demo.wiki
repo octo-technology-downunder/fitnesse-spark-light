@@ -1,0 +1,68 @@
+---
+AddChild
+Help: Snapshot of config table
+Suites: Erwan
+Test
+---
+!2 Simple Spark Job Test Case
+
+!***> Declarations
+!path ./FitNesseRoot/files/lib/fixtures/*
+!define TEST_SYSTEM {slim}
+
+|import                  |
+|au.com.amp.edim.fixtures|
+
+*!
+
+!anchor Topofpage
+!*** Description of the test case
+
+ * Simple Spark Job Test Case
+
+.#Inputtables
+.#Sparkjob
+.#Expectedresults
+*!
+
+
+!*** Input tables
+!anchor Inputtables
+
+# List here all input tables, with one row per use case.
+# Note the >> before the dataset name
+
+|table: csv file|>>MY_INPUT_DATA|
+|COLUMN_1 |COLUMN_2 |COLUMN_3   |
+|value_1_a|value_2_a|value_3_a  |
+|value_1_b|value_2_b|value_3_b  |
+|value_1_c|value_2_c|value_3_c  |
+
+.#Topofpage
+*!
+
+!*** Spark job
+!anchor Sparkjob
+# Add all the datasets here
+
+|table: execute spark job|au.com.octo.spark.KeepOnly1AJob|>>OUTPUT_DATA|||
+|MY_INPUT_DATA                                                          |
+
+.#Topofpage
+*!
+
+!*** Expected results
+!anchor Expectedresults
+# Business rules here.
+
+'''Output columns rules'''
+
+ * ''keep only row where there COLUMN_1 ==  value_1_a'
+
+
+|table: csv file|OUTPUT_DATA    |
+|COLUMN_1 |COLUMN_2 |COLUMN_3   |
+|value_1_a|value_2_a|value_3_a  |
+
+.#Topofpage
+*!
